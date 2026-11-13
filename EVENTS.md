@@ -58,8 +58,16 @@ touches the search index, which is why cancellations kept working.
 
 **What you expect `redeliver` on a refund message to do.**
 
-_TODO (yours, written in your own words): what changes in the ledger, at the
-payment provider, and in the bus log?_
+I read `refundLedger.ts` and the `InMemoryBus` doc comment before running the
+demo. `handle()` has no check for a message it has already seen, and the bus
+keeps no record of what each subscriber has seen, so I expect `redeliver` to run
+both steps again.
+
+- **Ledger:** a second entry (`led-2`) for the same booking and the same $85.00.
+- **Payment provider:** a second call to `refund` and a second settlement, so
+  $170.00 returned for an $85.00 booking.
+- **Bus log:** the delivery count for the refund message goes up by one per
+  redelivery, so 3 after two redeliveries.
 
 ### Before your fix
 
@@ -114,7 +122,10 @@ dead letters: 0
 
 **Your prediction against the run.**
 
-_TODO (yours): where they agree and where they do not._
+They agree on all three: the ledger grew to 3 entries, the provider settled 3
+times ($255.00 returned), and `msg-3` shows `deliveries=3`. The prediction did
+not cover that nothing flags the duplicate: there are 0 dead letters and no
+error, so the double payout is silent.
 
 ### Your fix
 
