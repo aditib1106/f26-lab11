@@ -34,6 +34,19 @@ function main(): void {
     '\nthe refund message is in the log and in the dead-letter list. ' +
       'Milestone 3 asks what you do with it.',
   );
+
+  // Milestone 3 recovery: redeliver the dead-lettered refund message. Safe only
+  // because RefundLedger is idempotent per message id (milestone 2). The
+  // provider has healed (failOnCall only armed call 1), so this delivery pays.
+  const messageId = cancellation.refundMessageId;
+  if (messageId === undefined) {
+    throw new Error('this cancellation owed no refund, so there is no message to redeliver');
+  }
+  console.log(`\nredelivering ${messageId}`);
+  app.bus.redeliver(messageId);
+
+  printRefundState(app, 'after the redelivery');
+  printMessageLog(app);
 }
 
 main();

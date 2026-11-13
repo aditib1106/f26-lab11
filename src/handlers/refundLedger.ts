@@ -25,22 +25,38 @@ export class RefundLedger implements Subscriber<RefundRequested> {
 
   private readonly entries: LedgerEntry[] = [];
   private readonly gateway: PaymentGateway;
+  /** Message ids whose ledger entry has been written. */
+  private readonly booked = new Set<string>();
+  /** Message ids whose refund the payment provider has accepted. */
+  private readonly paid = new Set<string>();
 
   constructor(gateway: PaymentGateway) {
     this.gateway = gateway;
   }
 
+  /**
+   * Safe to deliver more than once. The message id is the idempotency key, and
+   * the two steps are tracked separately: a delivery that wrote the ledger
+   * entry but died at the provider leaves the id in `booked` but not in
+   * `paid`, so a redelivery retries only the provider call.
+   */
   handle(message: Message<RefundRequested>): void {
     const event = message.payload;
-    this.entries.push({
-      entryId: `led-${this.entries.length + 1}`,
-      bookingId: event.bookingId,
-      organizer: event.organizer,
-      amountCents: event.amountCents,
-      reason: event.reason,
-      recordedAtMinute: message.publishedAtMinute,
-    });
-    this.gateway.refund(event.bookingId, event.amountCents);
+    if (!this.booked.has(message.id)) {
+      this.entries.push({
+        entryId: `led-${this.entries.length + 1}`,
+        bookingId: event.bookingId,
+        organizer: event.organizer,
+        amountCents: event.amountCents,
+        reason: event.reason,
+        recordedAtMinute: message.publishedAtMinute,
+      });
+      this.booked.add(message.id);
+    }
+    if (!this.paid.has(message.id)) {
+      this.gateway.refund(event.bookingId, event.amountCents);
+      this.paid.add(message.id);
+    }
   }
 
   /** Every ledger entry, oldest first. */

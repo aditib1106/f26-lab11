@@ -112,3 +112,34 @@ describe('the refund ledger', () => {
     expect(app.gateway.callCount()).toBe(0);
   });
 });
+
+describe('the refund ledger under redelivery', () => {
+  it('books and pays once however many times the message is delivered', () => {
+    const app = newApp();
+    const booking = aBookingWithRefund(app);
+    const cancellation = app.service.cancel(booking.id);
+    const id = cancellation.refundMessageId as string;
+
+    app.bus.redeliver(id);
+    app.bus.redeliver(id);
+
+    expect(app.ledger.size()).toBe(1);
+    expect(app.gateway.settled()).toHaveLength(1);
+    expect(app.gateway.totalSettledCents()).toBe(8500);
+    expect(app.bus.deliveryCount(id)).toBe(3);
+  });
+
+  it('pays on redelivery after a provider failure without a second ledger entry', () => {
+    const app = newApp();
+    app.gateway.failOnCall(1);
+    const booking = aBookingWithRefund(app);
+    const cancellation = app.service.cancel(booking.id);
+    const id = cancellation.refundMessageId as string;
+    expect(app.gateway.totalSettledCents()).toBe(0);
+
+    app.bus.redeliver(id);
+
+    expect(app.ledger.size()).toBe(1);
+    expect(app.gateway.totalSettledCents()).toBe(8500);
+  });
+});

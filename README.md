@@ -67,3 +67,7 @@ paste into `EVENTS.md`. Both print the same output on every run.
 
 See the Lab 11 handout on the course page for the three milestones you show a
 TA.
+
+## AI tools used
+
+Claude (Sonnet 5.5) via Claude chat, used to read the starter, write the refund-handler fix and draft EVENTS.md.
